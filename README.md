@@ -28,7 +28,7 @@ sudo apt update && sudo apt upgrade -y && sudo apt install python3 git ffmpeg -y
 ```
 
 ```sh
-git clone https://github.com/TechyShreyansh/YMusic-Userbot.git
+git clone https://github.com/TechyShreyansh/MusicBot.git
 ```
 
 ```sh
