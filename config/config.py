@@ -7,7 +7,7 @@ API_HASH: str = os.getenv("API_HASH", "")
 
 SESSION_STRING: str = os.getenv("SESSION_STRING", "")
 
-OWNER_IDS = [int(id.strip()) for id in os.getenv("OWNER_ID", "0").split(",")]
+OWNER_ID = [int(id.strip()) for id in os.getenv("OWNER_ID", "0").split(",")]
 
 LOG_GROUP_ID: int = int(os.getenv("LOG_GROUP_ID", 0))
 
