@@ -28,7 +28,7 @@ sudo apt update && sudo apt upgrade -y && sudo apt install python3 git ffmpeg -y
 ```
 
 ```sh
-git clone https://github.com/EnhancedProtection/YMusic-Userbot.git
+git clone https://github.com/TechyShreyansh/YMusic-Userbot.git
 ```
 
 ```sh
@@ -80,8 +80,8 @@ bash start
 
 ## Contributors
 
-- [EnhancedProtection](https://github.com/EnhancedProtection/)
-- [Kritik](https://github.com/Kritik007/)
+- [MrGhost](https://github.com/MrGhostsx/)
+- [Raman](https://github.com/ramanveerji/)
 - [Abhi](https://github.com/AbhiTheModder)
 
 --------
@@ -96,7 +96,7 @@ bash start
 
 ## License
 
-[MIT](https://github.com/EnhancedProtection/YMusic-Userbot/blob/main/LICENSE)
+[MIT](https://github.com/TechyShreyansh/YMusic-Userbot/blob/main/LICENSE)
 
 --------
 
@@ -110,7 +110,7 @@ bash start
 
 ## Support
 
-- [Telegram](https://t.me/EnhancedProtection)
+- [Telegram](https://t.me/AboutShreyansh)
 
 ---------
 
