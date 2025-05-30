@@ -90,7 +90,7 @@ async def _aPlay(_, message):
                 finish_time = time.time()
                 total_time_taken = str(int(finish_time - start_time)) + "s"
                 await m.edit(
-                    f"Playing your song\n\nSongName:- [{message.reply_to_message.audio.title[:19]}]({message.reply_to_message.link})\nDuration:- {message.reply_to_message.audio.duration}\nTime taken to play:- {total_time_taken}\n\n Powered by: @moonuserbot",
+                    f"Playing your song\n\nSongName:- [{message.reply_to_message.audio.title[:19]}]({message.reply_to_message.link})\nDuration:- {message.reply_to_message.audio.duration}\nTime taken to play:- {total_time_taken}",
                     disable_web_page_preview=True,
                 )
     elif (len(message.command)) < 2:
@@ -178,6 +178,6 @@ async def _raPlay(_, message):
             finish_time = time.time()
             total_time_taken = str(int(finish_time - start_time)) + "s"
             await m.edit(
-                f"Playing your song\n\nSongName:- [{title[:19]}]({link})\nDuration:- {duration}\nTime taken to play:- {total_time_taken}\n\n Powered by: @moonuserbot",
+                f"Playing your song\n\nSongName:- [{title[:19]}]({link})\nDuration:- {duration}\nTime taken to play:- {total_time_taken}",
                 disable_web_page_preview=True,
             )
