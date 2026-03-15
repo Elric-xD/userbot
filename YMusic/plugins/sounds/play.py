@@ -14,18 +14,17 @@ import time
 import config
 
 PLAY_COMMAND = ["P", "PLAY"]
-
 PREFIX = config.PREFIX
-
 RPREFIX = config.RPREFIX
 
-
+# ---------------------------------------------------------
+# Helper: Local YTDL Fallback
+# ---------------------------------------------------------
 async def ytdl(format: str, link: str):
     stdout, stderr = await bash(f'yt-dlp --geo-bypass -g -f "{format}" {link}')
     if stdout:
         return 1, stdout
     return 0, stderr
-
 
 async def bash(cmd):
     process = await asyncio.create_subprocess_shell(
@@ -38,146 +37,129 @@ async def bash(cmd):
     out = stdout.decode().strip()
     return out, err
 
-
+# ---------------------------------------------------------
+# Helper: Process Telegram Audio Files
+# ---------------------------------------------------------
 async def processReplyToMessage(message):
     msg = message.reply_to_message
     if msg.audio or msg.voice:
-        m = await message.reply_text("Please wait... Downloading your song...")
+        m = await message.reply_text("📥 Downloading audio file...")
         audio_original = await msg.download()
-        input_filename = audio_original
-        return input_filename, m
-    return None
+        return audio_original, m
+    return None, None
 
-
-async def playWithLinks(link):
-    if "&" in link:
-        pass
-    if "?" in link:
-        pass
-
-    return 0
-
-
+# ---------------------------------------------------------
+# Main Play Command (Group Users)
+# ---------------------------------------------------------
 @app.on_message((filters.command(PLAY_COMMAND, [PREFIX, RPREFIX])) & filters.group)
 async def _aPlay(_, message):
     start_time = time.time()
     chat_id = message.chat.id
+
+    # CASE 1: Reply to an Audio File
     if (message.reply_to_message) is not None:
         if message.reply_to_message.audio or message.reply_to_message.voice:
             input_filename, m = await processReplyToMessage(message)
-            if input_filename is None:
-                await message.reply_text(
-                    "Please reply to an audio file or provide song name/yt link"
-                )
-                return
-            await m.edit("Please wait... Playing your song in a while...")
+            if not input_filename:
+                return await message.reply_text("Invalid audio file.")
+            
+            await m.edit("🎸 Playing your audio reply...")
             Status, Text = await userbot.playAudio(chat_id, input_filename)
-            if Status == False:
-                await m.edit(Text)
-            else:
-                if chat_id in QUEUE:
-                    queue_num = add_to_queue(
-                        chat_id,
-                        message.reply_to_message.audio.title[:19],
-                        message.reply_to_message.audio.duration,
-                        message.reply_to_message.audio.file_id,
-                        message.reply_to_message.link,
-                    )
-                    await m.edit(
-                        f"# {queue_num}\n{message.reply_to_message.audio.title[:19]}\nYour song has been added to the queue!"
-                    )
-                    return
-                finish_time = time.time()
-                total_time_taken = str(int(finish_time - start_time)) + "s"
-                await m.edit(
-                    f"Playing your song\n\nSongName:- [{message.reply_to_message.audio.title[:19]}]({message.reply_to_message.link})\nDuration:- {message.reply_to_message.audio.duration}\nTime taken to play:- {total_time_taken}",
-                    disable_web_page_preview=True,
-                )
-    elif (len(message.command)) < 2:
-        await message.reply_text("PLease enter song name or yt link")
-    else:
-        m = await message.reply_text("Searching for your song")
-        query = message.text.split(maxsplit=1)[1]
-        video_id = extract_video_id(query)
-        is_videoId = True if video_id is not None else False
-        video_id = query if video_id is None else video_id
-        is_alt_method = False
-        try:
-            title, duration, link = searchYt(video_id, is_videoId)
-            if (title, duration, link) == (None, None, None):
-                return await m.edit("No results found")
-        except Exception as e:
-            if "This request was detected as a bot" in str(e):
-                await m.edit(
-                    "This request was detected as a bot... Switching to alternate method"
-                )
-                await m.edit("Searching for your song...")
-                title, duration, songlink = search_api(video_id, is_videoId)
-                is_alt_method = True
-                link = None
-                if (title, duration, songlink) == (None, None, None):
-                    return await m.edit("No results found")
-                if songlink is None:
-                    return await m.edit("No results found")
-            else:
-                await message.reply_text(f"Error:- <code>{e}</code>")
-                await m.delete()
-                return
-        await m.edit("Found the match... Downloading your song...")
-        resp = 1
-        if not is_alt_method:
-            format = "bestaudio"
-            resp, songlink = await ytdl(format, link)
-        if resp == 0:
-            await m.edit(f"❌ yt-dl issues detected\n\n» `{songlink}`")
-        else:
+            
+            if not Status:
+                return await m.edit(Text)
+
+            title = (message.reply_to_message.audio.title or "Telegram Audio")[:19]
+            duration = message.reply_to_message.audio.duration or 0
+            
             if chat_id in QUEUE:
-                queue_num = add_to_queue(chat_id, title[:19], duration, songlink, link)
-                await m.edit(
-                    f"# {queue_num}\n{title[:19]}\nYour song has been added to the queue"
-                )
-                return
-            # await asyncio.sleep(1)
+                queue_num = add_to_queue(chat_id, title, duration, input_filename, message.reply_to_message.link)
+                await m.edit(f"# {queue_num}\n{title}\nAdded to queue!")
+            else:
+                add_to_queue(chat_id, title, duration, input_filename, message.reply_to_message.link)
+                finish_time = time.time()
+                await m.edit(f"✅ Playing Audio\nTime taken: {int(finish_time - start_time)}s")
+            return
+
+    # CASE 2: No Arguments
+    if len(message.command) < 2:
+        return await message.reply_text("Please provide a song name or YouTube link.")
+
+    # CASE 3: Search and Play via API
+    m = await message.reply_text("🔍 Searching...")
+    query = message.text.split(maxsplit=1)[1]
+    
+    video_id = extract_video_id(query)
+    is_videoId = video_id is not None
+    search_query = video_id if is_videoId else query
+
+    try:
+        # Step A: Try Vercel API First (Fastest)
+        title, duration, songlink = search_api(search_query, is_videoId)
+        yt_link = f"https://www.youtube.com/watch?v={video_id}" if is_videoId else "Search Result"
+
+        # Step B: Fallback to local Search if API fails
+        if not songlink:
+            await m.edit("🔄 API busy, trying local search...")
+            title, duration, local_link = searchYt(search_query, is_videoId)
+            
+            if not local_link:
+                return await m.edit("❌ No results found.")
+            
+            await m.edit("📥 Extracting audio...")
+            resp, songlink = await ytdl("bestaudio", local_link)
+            yt_link = local_link
+            
+            if resp == 0:
+                return await m.edit(f"❌ yt-dlp Error: `{songlink}`")
+
+        # Step C: Play the extracted Link
+        if chat_id in QUEUE:
+            queue_num = add_to_queue(chat_id, title[:19], duration, songlink, yt_link)
+            await m.edit(f"# {queue_num}\n{title[:19]}\nAdded to queue!")
+        else:
             Status, Text = await userbot.playAudio(chat_id, songlink)
-            if Status == False:
-                await m.edit(Text)
-            if duration is None:
-                duration = "Playing From LiveStream"
-            add_to_queue(chat_id, title[:19], duration, songlink, link)
+            if not Status:
+                return await m.edit(Text)
+            
+            add_to_queue(chat_id, title[:19], duration, songlink, yt_link)
             finish_time = time.time()
             total_time_taken = str(int(finish_time - start_time)) + "s"
             await m.edit(
-                f"Playing your song\n\nSongName:- [{title[:19]}]({link})\nDuration:- {duration}\nTime taken to play:- {total_time_taken}",
+                f"**🎵 Playing Song**\n\n**Name:** [{title[:19]}]({yt_link})\n**Duration:** {duration}\n**Processing:** {total_time_taken}",
                 disable_web_page_preview=True,
             )
 
+    except Exception as e:
+        await m.edit(f"❌ Error: ` {str(e)[:100]} `")
 
+# ---------------------------------------------------------
+# Sudo Play Command (Broadcast/Specific Chat)
+# ---------------------------------------------------------
 @app.on_message((filters.command(PLAY_COMMAND, [PREFIX, RPREFIX])) & SUDOERS)
 async def _raPlay(_, message):
     start_time = time.time()
-    if (message.reply_to_message) is not None:
-        await message.reply_text("Currently this is not supported")
-    elif (len(message.command)) < 3:
-        await message.reply_text("You Forgot To Pass An Argument")
-    else:
-        m = await message.reply_text("Searching Your Query...")
-        query = message.text.split(" ", 2)[2]
-        msg_id = message.text.split(" ", 2)[1]
+    if len(message.command) < 3:
+        return await message.reply_text("Usage: /play [chat_id] [song_name]")
+
+    m = await message.reply_text("🚀 Sudo playing...")
+    target_chat_id = message.text.split(" ", 2)[1]
+    query = message.text.split(" ", 2)[2]
+
+    # Use API for Sudo as well
+    title, duration, songlink = search_api(query)
+    
+    if not songlink:
+        # Fallback to local search
         title, duration, link = searchYt(query)
-        await m.edit("Downloading...")
-        format = "bestaudio"
-        resp, songlink = await ytdl(format, link)
+        resp, songlink = await ytdl("bestaudio", link)
         if resp == 0:
-            await m.edit(f"❌ yt-dl issues detected\n\n» `{songlink}`")
-        else:
-            Status, Text = await userbot.playAudio(msg_id, songlink)
-            if Status == False:
-                await m.edit(Text)
-            if duration is None:
-                duration = "Playing From LiveStream"
-            finish_time = time.time()
-            total_time_taken = str(int(finish_time - start_time)) + "s"
-            await m.edit(
-                f"Playing your song\n\nSongName:- [{title[:19]}]({link})\nDuration:- {duration}\nTime taken to play:- {total_time_taken}",
-                disable_web_page_preview=True,
-            )
+            return await m.edit("Extraction failed.")
+
+    Status, Text = await userbot.playAudio(target_chat_id, songlink)
+    if not Status:
+        await m.edit(Text)
+    else:
+        finish_time = time.time()
+        await m.edit(f"✅ Playing `{title[:19]}` in `{target_chat_id}`\nTime: {int(finish_time - start_time)}s")
+        
