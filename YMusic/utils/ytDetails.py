@@ -2,7 +2,7 @@ import requests
 from pytubefix import Search, YouTube as pyYouTube, Playlist
 from urllib.parse import urlparse, parse_qs
 
-API_URL = "https://apis.davidcyriltech.my.id/"
+API_URL = "https://yt-api-vercelgg-six.vercel.app/"
 
 
 def searchYt(query, is_videoId=False):
